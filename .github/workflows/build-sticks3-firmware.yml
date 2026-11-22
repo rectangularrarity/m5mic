@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     steps:
@@ -30,9 +30,9 @@ jobs:
             ~/.espressif
             ~/.cargo/registry
             ~/.cargo/git
-          key: espidf-${{ runner.os }}-v5.3.2-${{ hashFiles('Cargo.lock', 'firmware/components_esp32s3.lock') }}
+          key: espidf-noble-v5.3.2-${{ hashFiles('Cargo.lock', 'firmware/components_esp32s3.lock') }}
           restore-keys: |
-            espidf-${{ runner.os }}-v5.3.2-
+            espidf-noble-v5.3.2-
 
       - name: Install Xtensa Rust toolchain
         uses: esp-rs/xtensa-toolchain@v1.7
