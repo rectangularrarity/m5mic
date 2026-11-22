@@ -20,7 +20,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build python3-venv pkg-config libssl-dev
+            cmake ninja-build python3-venv pkg-config libssl-dev \
+            libffi-dev libxml2 libxml2-dev libusb-1.0-0
 
       - name: Cache ESP-IDF tools
         uses: actions/cache@v4
