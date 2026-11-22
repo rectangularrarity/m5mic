@@ -48,28 +48,33 @@ jobs:
       - name: Collect binaries
         run: |
           set -euo pipefail
-          APP=$(find firmware/target -type f -name 'm5mic-firmware.bin' | head -n1)
-          if [ -z "$APP" ]; then
-            echo "app image not found; bins present:" >&2
-            find firmware/target -type f -name '*.bin' >&2 || true
-            exit 1
-          fi
-          BUILD_DIR=$(dirname "$APP")
-          echo "build dir: $BUILD_DIR"
+          RELEASE=firmware/target/xtensa-esp32s3-espidf/release
+          ELF="$RELEASE/m5mic-firmware"
+          test -f "$ELF"
+          file "$ELF"
 
-          # Launcher / OTA-style app image (starts with 0xe9)
-          cp "$APP" m5mic-sticks3-launcher.bin
-          test "$(od -An -tx1 -N1 m5mic-sticks3-launcher.bin | tr -d ' \n')" = "e9"
+          # espflash turns the Rust ELF into a proper ESP app image.
+          curl -sSL -o /tmp/espflash.zip \
+            https://github.com/esp-rs/espflash/releases/latest/download/espflash-x86_64-unknown-linux-gnu.zip
+          unzip -oq /tmp/espflash.zip -d /tmp/espflash
+          ESPFLASH=$(find /tmp/espflash -type f -name espflash | head -n1)
+          chmod +x "$ESPFLASH"
+          "$ESPFLASH" --version
+
+          # App image for M5Launcher (starts with 0xe9)
+          "$ESPFLASH" save-image --chip esp32s3 \
+            --flash-size 8mb --flash-mode qio --flash-freq 80mhz \
+            "$ELF" m5mic-sticks3-launcher.bin
 
           # Full merged image for M5Burner / esptool at 0x0
-          python3 -m venv /tmp/esptool-venv
-          /tmp/esptool-venv/bin/pip install --quiet 'esptool==4.8.1'
-          /tmp/esptool-venv/bin/python -m esptool --chip esp32s3 merge_bin \
-            -o m5mic-sticks3-merged.bin \
-            --flash_mode qio --flash_freq 80m --flash_size 8MB \
-            0x0 "$BUILD_DIR/bootloader/bootloader.bin" \
-            0x8000 "$BUILD_DIR/partition_table/partition-table.bin" \
-            0x10000 "$APP"
+          "$ESPFLASH" save-image --chip esp32s3 \
+            --flash-size 8mb --flash-mode qio --flash-freq 80mhz \
+            --merge "$ELF" m5mic-sticks3-merged.bin
+
+          test "$(od -An -tx1 -N1 m5mic-sticks3-launcher.bin | tr -d ' \n')" = "e9"
+          test "$(od -An -tx1 -N1 m5mic-sticks3-merged.bin | tr -d ' \n')" = "e9"
+          APP_SIZE=$(stat -c%s m5mic-sticks3-launcher.bin)
+          test "$APP_SIZE" -le $((0x4D0000))
 
           ls -l m5mic-sticks3-*.bin
           sha256sum m5mic-sticks3-*.bin | tee SHA256SUMS.txt
